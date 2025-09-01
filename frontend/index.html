@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NEDx | Learn all about NED University</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Chat Button Styles -->
+<style>
+  #ned-chat-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    /* background-color: #004080; NED blue */
+    color: white;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    z-index: 9999;
+  }
+</style>
+
+<!-- Chat Button -->
+<div id="ned-chat-btn" title="Chat with NEDx" class="animate-bounce duration-2000">
+  <img src="./public/robot.png" alt="">
+</div>
+
+<!-- Chat Button Script -->
+<script>
+  document.getElementById('ned-chat-btn').addEventListener('click', function() {
+    window.open("http://localhost:5173", "_blank");
+  });
+</script>
+
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
