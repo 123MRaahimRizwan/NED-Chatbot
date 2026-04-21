@@ -113,7 +113,7 @@ def upload_chunks_to_qdrant(chunks, source):
     points = [
         PointStruct(
             id=start_id + i,
-            vector=embedding,
+            vector={"vector": embedding},
             payload={"text": chunk, "source": source}
         )
         for i, (embedding, chunk) in enumerate(zip(embeddings, chunks))

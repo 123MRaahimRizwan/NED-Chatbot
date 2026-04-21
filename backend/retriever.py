@@ -57,8 +57,8 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # Qdrant config
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-QDRANT_HOST = os.getenv("QDRANT_HOST", "https://your-qdrant-cluster.cloud")  # replace default if needed
-QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "ned-chatbot")
+QDRANT_HOST = os.getenv("QDRANT_HOST")  # replace default if needed
+QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION")
 
 client = QdrantClient(
     url=QDRANT_HOST,
@@ -72,12 +72,15 @@ def retrieve_chunks(query, top_k=8):
     # print(f"📏 Query vector (first 5 dims): {query_vector[:5]}")
 
     try:
-        hits = client.search(
+        response = client.query_points(
             collection_name=QDRANT_COLLECTION,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
-            with_payload=True
+            with_payload=True,
+            using="vector"
         )
+
+        hits = response.points
 
         print(f"✅ Retrieved {len(hits)} chunks from Qdrant.")
         # for i, hit in enumerate(hits):

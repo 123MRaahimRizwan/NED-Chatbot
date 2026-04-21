@@ -160,7 +160,7 @@ import hashlib
 from datetime import datetime
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
-from parser import robust_pdf_parser
+from pdf_parser import robust_pdf_parser
 from ingestion_utils import upload_chunks_to_qdrant  # ✅ use this instead of saving to chunks.pkl
 import pickle
 

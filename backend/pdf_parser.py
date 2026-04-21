@@ -40,7 +40,10 @@ def robust_pdf_parser(pdf_path, tesseract_lang='eng'):
                 images = convert_from_path(pdf_path, first_page=page_num+1, last_page=page_num+1)
                 page_text = ""
                 for img in images:
-                    page_text += pytesseract.image_to_string(img, lang=tesseract_lang)
+                    try:
+                        page_text += pytesseract.image_to_string(img, lang=tesseract_lang)
+                    except:
+                        print("Tesseract not installed!")
                 full_text.append(page_text.strip())
             else:
                 full_text.append(text.strip())
