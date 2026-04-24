@@ -5,16 +5,6 @@ import axios from "axios";
 const AdminDashboard = () => {
   const [files, setFiles] = useState([]);
   const [fileToUpload, setFileToUpload] = useState(null);
-  const [stats, setStats] = useState(null);
-
-  const fetchStats = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/admin/stats");
-      setStats(res.data);
-    } catch (err) {
-      console.error("Failed to fetch stats", err);
-    }
-  };
 
 
   const fetchFiles = async () => {
@@ -31,7 +21,6 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchFiles();
-    fetchStats(); // Fetch stats on mount
   }, []);
 
   const handleUpload = async () => {

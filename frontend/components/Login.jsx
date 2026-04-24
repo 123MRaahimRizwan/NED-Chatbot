@@ -20,7 +20,7 @@ const Login = ({ setIsAuthenticated }) => {
         setIsAuthenticated(true)
         navigate('/admin')
       }
-    } catch (err) {
+    } catch {
       setError('Invalid credentials')
     }
   }

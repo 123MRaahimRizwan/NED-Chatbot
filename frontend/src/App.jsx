@@ -119,12 +119,28 @@ import axios from 'axios'
 import './App.css'
 import ChatForm from '../components/ChatForm'
 import Navbar from '../components/Navbar'
-import Sidebar from '../components/Sidebar'
 import AdminDashboard from '../components/AdminDashboard'
 import Login from '../components/Login' // create a simple login component
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(null)
+  const [theme, setTheme] = useState('dark')
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      setTheme(savedTheme)
+      return
+    }
+
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    setTheme(prefersDark ? 'dark' : 'light')
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   const checkAuth = async () => {
     try {
@@ -132,7 +148,7 @@ function App() {
         withCredentials: true
       })
       setIsAuthenticated(res.data.authenticated)
-    } catch (err) {
+    } catch {
       setIsAuthenticated(false)
     }
   }
@@ -152,17 +168,27 @@ function App() {
 
   return (
     <Router>
-      <Navbar />
-      <div className="flex">
-        <Sidebar />
-        <div className="flex-1 ml-0 transition-all duration-300">
+      <div className="app-shell">
+        <Navbar
+          isAuthenticated={isAuthenticated}
+          theme={theme}
+          onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+        />
+        <div className="app-content">
           <Routes>
             <Route path="/" element={<ChatForm />} />
-            <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
+            <Route
+              path="/login"
+              element={<Login setIsAuthenticated={setIsAuthenticated} theme={theme} />}
+            />
             <Route
               path="/admin"
               element={
-                isAuthenticated ? <AdminDashboard /> : <Navigate to="/login" replace />
+                isAuthenticated ? (
+                  <AdminDashboard theme={theme} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
               }
             />
           </Routes>
