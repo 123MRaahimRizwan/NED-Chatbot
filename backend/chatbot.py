@@ -1,76 +1,16 @@
-# # chatbot.py
-# import pickle
-# import numpy as np
-# from sentence_transformers import SentenceTransformer
-# import google.generativeai as genai
-# import os
-
-
-# # Load chunks and embeddings
-# with open("chunks.pkl", "rb") as f:
-#     chunks, embeddings = pickle.load(f)
-
-# # Load embedding model
-# embedder = SentenceTransformer("all-MiniLM-L6-v2")
-
-# # Global variables to cache data
-# cached_chunks = None
-# cached_embeddings = None
-# last_modified_time = 0
-
-# def load_data_if_needed():
-#     """Load chunks and embeddings only if the file has changed"""
-#     global cached_chunks, cached_embeddings, last_modified_time
-    
-#     current_modified_time = os.path.getmtime("chunks.pkl")
-    
-#     if cached_chunks is None or current_modified_time > last_modified_time:
-#         print("🔄 Reloading updated data...")
-#         with open("chunks.pkl", "rb") as f:
-#             cached_chunks, cached_embeddings = pickle.load(f)
-#         last_modified_time = current_modified_time
-#         print(f"✅ Loaded {len(cached_chunks)} chunks")
-
-# # Gemini config
-# genai.configure(api_key="AIzaSyAJx29bCioUOBP7tjP9t7Nmjuxu3d3dyAg")
-# model = genai.GenerativeModel("gemini-2.5-flash")
-
-# def get_response(user_query):
-#     query_embedding = embedder.encode([user_query])[0]
-#     similarities = np.dot(embeddings, query_embedding)
-    
-#     # Get top 3 matches
-#     top_indices = np.argsort(similarities)[-3:][::-1]
-#     top_chunks = [chunks[i]['text'] for i in top_indices]
-
-#     context = "\n\n".join(top_chunks)
-
-#     prompt = f"""You are a helpful university assistant. Use the following information from official university documents to answer the question truthfully and if you fail mention contact: (92-21) 99261261-8 for admission enqueries".:
-
-# {context}
-
-# Question: {user_query}
-# Answer:"""
-
-#     response = model.generate_content(prompt)
-#     return response.text
-
-
-import google.generativeai as genai
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, util
 from retriever import retrieve_chunks
 import os
 from dotenv import load_dotenv
+import re
 
 # Load environment variables (especially for Qdrant if needed)
 load_dotenv()
 
-# Load embedding model (for embedding the user query)
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-
-# Gemini configuration
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))  # Store your Gemini key in .env
-model = genai.GenerativeModel("gemini-2.5-flash")
+# Load embedding model
+model = SentenceTransformer("all-MiniLM-L6-v2")
+cache = {}
+embedding_cache = {}
 
 def classify_query(query):
     """Classify the query to determine relevant document types"""
@@ -92,45 +32,92 @@ def classify_query(query):
     # If no specific category is detected, return None to search all documents
     return doc_types if doc_types else None
 
+def get_embedding(text):
+    if text not in embedding_cache:
+        embedding_cache[text] = model.encode(text, convert_to_tensor=True)
+    return embedding_cache[text]
+
+
+def clean_text(text):
+    text = text.replace("\n", " ")
+    text = " ".join(text.split())
+    return text
+
+
+def extract_relevant_sentences(chunks, query, threshold=0.55):
+    query_embedding = get_embedding(query)
+    candidates = []
+
+    for chunk in chunks:
+        sentences = chunk.split(".")
+        for s in sentences:
+            s = s.strip()
+            if len(s) < 20:
+                continue
+
+            sentence_embedding = get_embedding(s)
+            score = util.cos_sim(query_embedding, sentence_embedding).item()
+            if score > threshold:
+                candidates.append((score, s))
+
+    candidates.sort(reverse=True)
+    return [s for _, s in candidates[:3]]
+
+
+def expects_number(query):
+    return any(k in query.lower() for k in ["how many", "number", "total", "count"])
+
+
+def contains_number(sentences):
+    return any(re.search(r"\d+", s) for s in sentences)
+
+
+def extract_key_terms(query):
+    stopwords = {
+        "the", "is", "are", "a", "an", "of", "do", "you", "know", "about",
+        "tell", "me", "what", "when", "where", "how"
+    }
+
+    words = query.lower().split()
+    return [w for w in words if w not in stopwords and len(w) > 3]
+
+
+def contains_key_terms(sentences, key_terms, min_match=2):
+    combined = " ".join(sentences).lower()
+    matches = sum(1 for term in key_terms if term in combined)
+    return matches >= min_match
+
+
+def generate_answer(query):
+    if query in cache:
+        return cache[query]
+
+    chunks = retrieve_chunks(query, top_k=8)
+    chunks = [clean_text(chunk) for chunk in chunks if chunk and chunk.strip()]
+    relevant = extract_relevant_sentences(chunks, query)
+    key_terms = extract_key_terms(query)
+
+    if relevant and not contains_key_terms(relevant, key_terms):
+        answer = "I couldn't find relevant information about that in the data."
+        cache[query] = answer
+        return answer
+
+    if expects_number(query):
+        if not contains_number(relevant):
+            answer = "I couldn't find the exact number in the available data."
+            cache[query] = answer
+            return answer
+
+    if relevant:
+        print("Using direct retrieval")
+        answer = " ".join(relevant[:3])
+        cache[query] = answer
+        return answer
+
+    answer = "Sorry, I couldn't find a relevant answer in the data."
+    cache[query] = answer
+    return answer
+
+
 def get_response(user_query):
-    # Step 1: Embed the user query
-    query_embedding = embedder.encode([user_query])[0]
-
-    # Step 2: Retrieve top chunks from Qdrant
-    top_chunks = retrieve_chunks(user_query, top_k=8)
-    
-    # Remove any empty chunks and ensure we have content
-    top_chunks = [chunk for chunk in top_chunks if chunk and len(chunk.strip()) > 0]
-    
-    if not top_chunks:
-        return "I apologize, but I couldn't access the relevant information at the moment. Please contact NED University at " \
-        "Admission queries:(92-21) 99261261-8 General queries:(92-21) 99261261-8 or visit www.neduet.edu.pk/admission for accurate information."
-
-
-    # Step 3: Prepare the context for Gemini
-    context = "\n\n".join(top_chunks)
-
-    prompt = f"""
-You are a helpful and knowledgeable assistant for NED University. Your goal is to provide accurate and helpful information to students and visitors.
-
-Use the following context from official university documents to answer the question. You can combine information from multiple chunks to form a complete answer.
-
-Context from official documents:
-{context}
-
-Important instructions:
-1. Answer based on the provided context and your understanding of academic concepts
-2. If the information is partially available, provide what you know and explain any uncertainties
-3. You can make reasonable inferences from the provided context
-4. If you truly cannot find relevant information, suggest contacting the university:
-   "For more specific information, please contact NED University at (92-21) 99261261-8 or visit www.neduet.edu.pk/admission"
-
-Student's Question: "{user_query}"
-
-Provide a helpful and informative answer:
-"""
-
-    # Step 4: Generate answer using Gemini
-    # print("\n📨 Prompt sent to Gemini:\n", prompt[:3000], "\n")
-    response = model.generate_content(prompt)
-    return response.text
+    return generate_answer(user_query)

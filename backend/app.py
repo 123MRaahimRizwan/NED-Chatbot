@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from markupsafe import Markup
 import markdown
-from chatbot import get_response
+from chatbot import generate_answer
 from flask_login import LoginManager
 from admin_routes import admin
 from auth_routes import auth
@@ -23,7 +23,7 @@ app.register_blueprint(auth)
 def ask():
     data = request.get_json()
     user_question = data.get("question", "")
-    response = get_response(user_question)
+    response = generate_answer(user_question)
 
     # Convert response to Markdown and return as HTML string
     # response_html = Markup(markdown.markdown(response))
@@ -35,4 +35,4 @@ def ask():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
