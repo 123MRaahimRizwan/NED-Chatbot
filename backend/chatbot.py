@@ -1,4 +1,5 @@
 from sentence_transformers import SentenceTransformer, util
+import google.generativeai as genai
 from retriever import retrieve_chunks
 import os
 from dotenv import load_dotenv
@@ -9,6 +10,10 @@ load_dotenv()
 
 # Load embedding model
 model = SentenceTransformer("all-MiniLM-L6-v2")
+
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+model_gemini = genai.GenerativeModel("gemini-3-flash-preview")
+
 cache = {}
 embedding_cache = {}
 
@@ -40,28 +45,35 @@ def get_embedding(text):
 
 def clean_text(text):
     text = text.replace("\n", " ")
-    text = " ".join(text.split())
-    return text
+    text = re.sub(r"\s+", " ", text)
+
+    # remove weird numbering patterns like "76 5(a)"
+    text = re.sub(r"\b\d+\s*\(?[a-z]?\)?", "", text)
+
+    return text.strip()
 
 
-def extract_relevant_sentences(chunks, query, threshold=0.55):
-    query_embedding = get_embedding(query)
-    candidates = []
+def generate_with_gemini(query, chunks):
+    context = "\n\n".join(chunks[:5])  # limit to avoid overload
 
-    for chunk in chunks:
-        sentences = chunk.split(".")
-        for s in sentences:
-            s = s.strip()
-            if len(s) < 20:
-                continue
+    prompt = f"""
+        You are a helpful university assistant.
 
-            sentence_embedding = get_embedding(s)
-            score = util.cos_sim(query_embedding, sentence_embedding).item()
-            if score > threshold:
-                candidates.append((score, s))
+        Answer the user's question based ONLY on the context below.
+        If the answer is not clearly available, say so politely.
 
-    candidates.sort(reverse=True)
-    return [s for _, s in candidates[:3]]
+        Context:
+        {context}
+
+        Question:
+        {query}
+
+        Answer clearly and concisely:
+        """
+
+    response = model_gemini.generate_content(prompt)
+
+    return response.text.strip()
 
 
 def expects_number(query):
@@ -87,34 +99,35 @@ def contains_key_terms(sentences, key_terms, min_match=2):
     matches = sum(1 for term in key_terms if term in combined)
     return matches >= min_match
 
+def format_answer(sentences):
+    clean = []
+
+    for s in sentences:
+        s = s.strip()
+
+        # capitalize properly
+        s = s[0].upper() + s[1:] if s else s
+
+        clean.append(s)
+
+    return " ".join(clean)
+
 
 def generate_answer(query):
     if query in cache:
         return cache[query]
 
     chunks = retrieve_chunks(query, top_k=8)
-    chunks = [clean_text(chunk) for chunk in chunks if chunk and chunk.strip()]
-    relevant = extract_relevant_sentences(chunks, query)
-    key_terms = extract_key_terms(query)
+    chunks = [clean_text(c) for c in chunks if c and c.strip()]
 
-    if relevant and not contains_key_terms(relevant, key_terms):
-        answer = "I couldn't find relevant information about that in the data."
+    if not chunks:
+        answer = "Sorry, I couldn't find relevant information in the data."
         cache[query] = answer
         return answer
 
-    if expects_number(query):
-        if not contains_number(relevant):
-            answer = "I couldn't find the exact number in the available data."
-            cache[query] = answer
-            return answer
+    print("Using Gemini for generation...")
+    answer = generate_with_gemini(query, chunks)
 
-    if relevant:
-        print("Using direct retrieval")
-        answer = " ".join(relevant[:3])
-        cache[query] = answer
-        return answer
-
-    answer = "Sorry, I couldn't find a relevant answer in the data."
     cache[query] = answer
     return answer
 

@@ -1,8 +1,8 @@
 import os
 import pickle
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
-from parser import extract_text_from_PDF
+from pdf_parser import extract_text_from_PDF
 
 # Step 1: Read all PDFs using the robust parser
 all_texts = []

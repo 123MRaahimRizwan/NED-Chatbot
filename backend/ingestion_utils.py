@@ -24,32 +24,6 @@ client = QdrantClient(
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# def upload_chunks_to_qdrant(chunks, source):
-#     embeddings = model.encode(chunks)
-
-#     # Create collection if not exists
-#     client.recreate_collection(
-#         collection_name=COLLECTION_NAME,
-#         vectors_config=VectorParams(
-#             size=embeddings.shape[1],
-#             distance=Distance.COSINE
-#         )
-#     )
-
-#     points = [
-#         PointStruct(
-#             id=i,
-#             vector=embedding,
-#             payload={"text": chunk, "source": source}
-#         )
-#         for i, (embedding, chunk) in enumerate(zip(embeddings, chunks))
-#     ]
-
-#     client.upsert(
-#         collection_name=COLLECTION_NAME,
-#         points=points
-#     )
-
 def upload_chunks_to_qdrant(chunks, source):
     embeddings = model.encode(chunks)
 

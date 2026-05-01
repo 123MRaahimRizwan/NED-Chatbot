@@ -1,4 +1,4 @@
-from parser import robust_pdf_parser
+from pdf_parser import robust_pdf_parser
 from sentence_transformers import SentenceTransformer
 import faiss
 import pickle
