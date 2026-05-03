@@ -14,7 +14,8 @@ load_dotenv()
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model_gemini = genai.GenerativeModel("gemini-3-flash-preview")
+# model_gemini = genai.GenerativeModel("gemini-3-flash-preview")
+model_gemini = genai.GenerativeModel("gemini-3.1-pro-preview")
 
 cache = {}
 embedding_cache = {}
