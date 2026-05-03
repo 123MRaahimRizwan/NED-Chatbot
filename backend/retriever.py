@@ -29,8 +29,8 @@ def retrieve_chunks(query, top_k=8):
             collection_name=QDRANT_COLLECTION,
             query=query_vector,
             limit=top_k,
-            with_payload=True,
-            using="vector"
+            with_payload=True
+            # using="vector"
         )
 
         hits = response.points

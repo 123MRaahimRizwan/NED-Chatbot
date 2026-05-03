@@ -1,9 +1,11 @@
 from sentence_transformers import SentenceTransformer, util
 import google.generativeai as genai
+import google.api_core.exceptions
 from retriever import retrieve_chunks
 import os
 from dotenv import load_dotenv
 import re
+import requests
 
 # Load environment variables (especially for Qdrant if needed)
 load_dotenv()
@@ -53,27 +55,44 @@ def clean_text(text):
     return text.strip()
 
 
-def generate_with_gemini(query, chunks):
-    context = "\n\n".join(chunks[:5])  # limit to avoid overload
+def generate_with_gemini(prompt):
+    try:
+        response = model_gemini.generate_content(prompt)
+        return response.text.strip()
+    except google.api_core.exceptions.ResourceExhausted as e:
+        print(f"Gemini API quota exceeded: {e}")
+        raise
+    except Exception as e:
+        print(f"Gemini API generic error: {e}")
+        raise
 
-    prompt = f"""
-        You are a helpful university assistant.
 
-        Answer the user's question based ONLY on the context below.
-        If the answer is not clearly available, say so politely.
-
-        Context:
-        {context}
-
-        Question:
-        {query}
-
-        Answer clearly and concisely:
-        """
-
-    response = model_gemini.generate_content(prompt)
-
-    return response.text.strip()
+def generate_with_deepseek(prompt):
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    url = "https://api.deepseek.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    
+    # Simple retry mechanism (up to 2 attempts)
+    for attempt in range(2):
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=15)
+            response.raise_for_status()
+            result = response.json()
+            if "choices" in result and len(result["choices"]) > 0:
+                return result["choices"][0]["message"]["content"].strip()
+            else:
+                raise ValueError("Unexpected API response format.")
+        except Exception as e:
+            print(f"DeepSeek Error on attempt {attempt + 1}: {e}")
+            if attempt == 1:
+                raise
 
 
 def expects_number(query):
@@ -125,8 +144,34 @@ def generate_answer(query):
         cache[query] = answer
         return answer
 
+    context = "\n\n".join(chunks[:5])  # limit to avoid overload
+
+    prompt = f"""
+        You are a helpful university assistant.
+
+        Answer the user's question based ONLY on the context below.
+        If the answer is not clearly available, say so politely.
+
+        Context:
+        {context}
+
+        Question:
+        {query}
+
+        Answer clearly and concisely:
+        """
+
     print("Using Gemini for generation...")
-    answer = generate_with_gemini(query, chunks)
+    try:
+        answer = generate_with_gemini(prompt)
+    except Exception as e:
+        print(f"Gemini failed, switching to DeepSeek. Error: {e}")
+        try:
+            print("Using DeepSeek for generation...")
+            answer = generate_with_deepseek(prompt)
+        except Exception as e2:
+            print(f"DeepSeek also failed. Error: {e2}")
+            answer = "⚠️ AI service temporarily unavailable. Please try again later."
 
     cache[query] = answer
     return answer
