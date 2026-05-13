@@ -1,6 +1,8 @@
 # 🤖 RAG Chatbot with Qdrant + Gemini + DeepSeek Fallback
 
-A production-ready **Retrieval-Augmented Generation (RAG)** chatbot built with:
+A production-ready **Retrieval-Augmented Generation (RAG)** chatbot for outsiders to know everything about NED University of Engineering and Technology. It originated as an idea to help intermediate students acquire accurate information about NED University.
+
+This app is built with:
 
 * 🔎 **Qdrant** for vector search
 * 🧠 **SentenceTransformers** for embeddings
