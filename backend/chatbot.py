@@ -68,30 +68,47 @@ def generate_with_gemini(prompt):
         raise
 
 
-def generate_with_deepseek(prompt):
-    api_key = os.getenv("DEEPSEEK_API_KEY")
-    url = "https://api.deepseek.com/v1/chat/completions"
+def generate_with_grok(prompt):
+    api_key = os.getenv("GROK_API_KEY")
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
+
     data = {
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}]
+        "model": "openai/gpt-oss-120b",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.3
     }
-    
-    # Simple retry mechanism (up to 2 attempts)
+
     for attempt in range(2):
         try:
-            response = requests.post(url, headers=headers, json=data, timeout=15)
+            response = requests.post(
+                url,
+                headers=headers,
+                json=data,
+                timeout=15
+            )
+
             response.raise_for_status()
+
             result = response.json()
-            if "choices" in result and len(result["choices"]) > 0:
-                return result["choices"][0]["message"]["content"].strip()
-            else:
-                raise ValueError("Unexpected API response format.")
+
+            return result["choices"][0]["message"]["content"].strip()
+
         except Exception as e:
-            print(f"DeepSeek Error on attempt {attempt + 1}: {e}")
+            print(
+                f"Grok Error attempt {attempt+1}: {e}"
+            )
+
             if attempt == 1:
                 raise
 
@@ -162,16 +179,16 @@ def generate_answer(query):
         Answer clearly and concisely:
         """
 
-    print("Using Gemini for generation...")
+    print("Using Grok for generation...")
     try:
-        answer = generate_with_gemini(prompt)
+        answer = generate_with_grok(prompt)
     except Exception as e:
-        print(f"Gemini failed, switching to DeepSeek. Error: {e}")
+        print(f"Grok failed, switching to Gemini. Error: {e}")
         try:
-            print("Using DeepSeek for generation...")
-            answer = generate_with_deepseek(prompt)
+            print("Using Gemini for generation...")
+            answer = generate_with_gemini(prompt)
         except Exception as e2:
-            print(f"DeepSeek also failed. Error: {e2}")
+            print(f"Gemini also failed. Error: {e2}")
             answer = "⚠️ AI service temporarily unavailable. Please try again later."
 
     cache[query] = answer
